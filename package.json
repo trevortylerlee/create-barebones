@@ -1,12 +1,18 @@
 {
   "name": "create-barebones",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Scaffold a new Barebones project",
   "type": "module",
   "bin": {
-    "create-barebones": "./index.js"
+    "create-barebones": "index.js"
   },
-  "keywords": ["astro", "blog", "starter", "theme", "barebones"],
+  "keywords": [
+    "astro",
+    "blog",
+    "starter",
+    "theme",
+    "barebones"
+  ],
   "author": "Trevor Tyler Lee",
   "license": "MIT",
   "dependencies": {
