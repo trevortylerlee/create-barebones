@@ -1,0 +1,17 @@
+{
+  "name": "create-barebones",
+  "version": "0.1.0",
+  "description": "Scaffold a new Barebones project",
+  "type": "module",
+  "bin": {
+    "create-barebones": "./index.mjs"
+  },
+  "keywords": ["astro", "blog", "starter", "theme", "barebones"],
+  "author": "Trevor Tyler Lee",
+  "license": "MIT",
+  "dependencies": {
+    "@clack/prompts": "^1.1.0",
+    "giget": "^2.0.0",
+    "picocolors": "^1.1.1"
+  }
+}
