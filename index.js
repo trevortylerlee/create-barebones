@@ -20,15 +20,42 @@ const CONTACT_LINK_OPTIONS = [
   { value: "custom", label: "Custom" },
 ];
 
-const CONTACT_URL_PREFIXES = {
-  email: "mailto:",
-  github: "https://github.com/",
-  twitter: "https://x.com/",
-  bluesky: "https://bsky.app/profile/",
-  threads: "https://threads.net/@",
-  instagram: "https://instagram.com/",
-  tiktok: "https://tiktok.com/@",
-  youtube: "https://youtube.com/@",
+const CONTACT_LINK_CONFIG = {
+  github: {
+    prefix: "https://github.com/",
+    message: "GitHub username",
+    placeholder: "username",
+  },
+  twitter: {
+    prefix: "https://x.com/",
+    message: "X (formerly Twitter) username",
+    placeholder: "username",
+  },
+  bluesky: {
+    prefix: "https://bsky.app/profile/",
+    message: "Bluesky handle",
+    placeholder: "handle.bsky.social",
+  },
+  threads: {
+    prefix: "https://threads.net/@",
+    message: "Threads username",
+    placeholder: "username",
+  },
+  instagram: {
+    prefix: "https://instagram.com/",
+    message: "Instagram username",
+    placeholder: "username",
+  },
+  tiktok: {
+    prefix: "https://tiktok.com/@",
+    message: "TikTok username",
+    placeholder: "username",
+  },
+  youtube: {
+    prefix: "https://youtube.com/@",
+    message: "YouTube handle",
+    placeholder: "handle",
+  },
 };
 
 const LOCALE_OPTIONS = [
@@ -54,21 +81,27 @@ function handleCancel(value) {
   return value;
 }
 
+function escapeStr(str) {
+  return str.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
 async function main() {
   console.log();
   p.intro(color.bgCyan(color.black(" create-barebones ")));
 
+  const pkgManager = detectPackageManager();
+
   // 1. Project name
   const name = handleCancel(
     await p.text({
-      message: "Project name",
+      message: "Project name:",
       placeholder: "barebones",
       defaultValue: "barebones",
       validate: (value) => {
         const v = value || "barebones";
         if (fs.existsSync(v)) return `Directory "${v}" already exists.`;
       },
-    })
+    }),
   );
 
   // 2. Site title
@@ -77,7 +110,7 @@ async function main() {
       message: "What is your site title?",
       placeholder: "My Blog",
       defaultValue: "My Blog",
-    })
+    }),
   );
 
   // 3. Site description
@@ -86,25 +119,29 @@ async function main() {
       message: "What is your site description?",
       placeholder: "A personal blog built with Barebones.",
       defaultValue: "A personal blog built with Barebones.",
-    })
+    }),
   );
 
-  // 4. Author name
+  // 4. Author name (optional, press Enter to skip)
   const author = handleCancel(
     await p.text({
       message: "What is the author's name?",
-      placeholder: "Trevor Tyler Lee",
-      defaultValue: "Trevor Tyler Lee",
-    })
+      placeholder: "Your name (press Enter to skip)",
+    }),
   );
 
   // 5. Site URL
   const siteUrl = handleCancel(
     await p.text({
       message: "What is your site URL?",
-      placeholder: "https://barebones.trevortylerlee.com",
-      defaultValue: "https://barebones.trevortylerlee.com",
-    })
+      placeholder: "https://example.com",
+      defaultValue: "https://example.com",
+      validate: (value) => {
+        const v = value || "https://example.com";
+        if (!/^https?:\/\//i.test(v))
+          return "URL must start with https:// or http://";
+      },
+    }),
   );
 
   // 6. Locale selection
@@ -113,7 +150,7 @@ async function main() {
       message: "What locale do you want to use?",
       options: LOCALE_OPTIONS,
       initialValue: "en-US",
-    })
+    }),
   );
 
   let locale = localeChoice;
@@ -125,7 +162,7 @@ async function main() {
         validate: (value) => {
           if (!value) return "Please enter a locale.";
         },
-      })
+      }),
     );
   }
 
@@ -134,7 +171,7 @@ async function main() {
     await p.confirm({
       message: "Do you want to configure your contact links?",
       initialValue: true,
-    })
+    }),
   );
 
   const contactLinks = [];
@@ -146,7 +183,7 @@ async function main() {
           color.dim("  Use Space to select, Enter to submit."),
         options: CONTACT_LINK_OPTIONS,
         required: false,
-      })
+      }),
     );
 
     for (const type of selectedTypes) {
@@ -161,7 +198,7 @@ async function main() {
               validate: (value) => {
                 if (!value) return "Please enter a name.";
               },
-            })
+            }),
           );
           const customUrl = handleCancel(
             await p.text({
@@ -169,8 +206,10 @@ async function main() {
               placeholder: "https://",
               validate: (value) => {
                 if (!value) return "Please enter a URL.";
+                if (!/^https?:\/\//i.test(value))
+                  return "URL must start with https:// or http://";
               },
-            })
+            }),
           );
           contactLinks.push({
             key: customLabel.toLowerCase().replace(/\s+/g, ""),
@@ -181,22 +220,40 @@ async function main() {
             await p.confirm({
               message: "Add another custom link?",
               initialValue: false,
-            })
+            }),
           );
         }
-      } else {
-        const prefix = CONTACT_URL_PREFIXES[type] || "https://";
-        const label = CONTACT_LINK_OPTIONS.find((o) => o.value === type).label;
-        const url = handleCancel(
+      } else if (type === "email") {
+        const email = handleCancel(
           await p.text({
-            message: `${label} URL`,
-            placeholder: `${prefix}`,
+            message: "Email address",
+            placeholder: "you@example.com",
             validate: (value) => {
-              if (!value) return `Please enter your ${label} URL.`;
+              if (!value) return "Please enter your email address.";
+              if (!/.+@.+\..+/.test(value))
+                return "Please enter a valid email address.";
             },
-          })
+          }),
         );
-        contactLinks.push({ key: type, label, href: url });
+        const label = CONTACT_LINK_OPTIONS.find((o) => o.value === type).label;
+        contactLinks.push({ key: type, label, href: `mailto:${email}` });
+      } else {
+        const config = CONTACT_LINK_CONFIG[type];
+        const label = CONTACT_LINK_OPTIONS.find((o) => o.value === type).label;
+        const input = handleCancel(
+          await p.text({
+            message: config.message,
+            placeholder: config.placeholder,
+            validate: (value) => {
+              if (!value)
+                return `Please enter your ${config.message.toLowerCase()}.`;
+            },
+          }),
+        );
+        const href = /^https?:\/\//i.test(input)
+          ? input
+          : `${config.prefix}${input}`;
+        contactLinks.push({ key: type, label, href });
       }
     }
   }
@@ -206,7 +263,7 @@ async function main() {
     await p.confirm({
       message: "Keep the demo posts and projects?",
       initialValue: true,
-    })
+    }),
   );
 
   // 9. Install dependencies
@@ -214,7 +271,7 @@ async function main() {
     await p.confirm({
       message: "Install dependencies?",
       initialValue: true,
-    })
+    }),
   );
 
   const s = p.spinner();
@@ -234,13 +291,13 @@ async function main() {
   siteConfig = siteConfig.replace(
     /export const SITE: SiteConfiguration = \{[\s\S]*?\};/,
     `export const SITE: SiteConfiguration = {
-  title: "${title}",
+  title: "${escapeStr(title)}",
   description:
-    "${description}",
-  href: "${siteUrl}",
-  author: "${author}",
-  locale: "${locale}",
-};`
+    "${escapeStr(description)}",
+  href: "${escapeStr(siteUrl)}",
+  author: "${escapeStr(author)}",
+  locale: "${escapeStr(locale)}",
+};`,
   );
 
   // Build SOCIAL_LINKS
@@ -248,7 +305,7 @@ async function main() {
   if (contactLinks.length > 0) {
     const entries = contactLinks.map(
       (link) =>
-        `  ${link.key}: {\n    label: "${link.label}",\n    href: "${link.href}",\n  }`
+        `  ${link.key}: {\n    label: "${escapeStr(link.label)}",\n    href: "${escapeStr(link.href)}",\n  }`,
     );
     socialBlock = `export const SOCIAL_LINKS: SocialLinks = {\n${entries.join(",\n")},\n};`;
   } else if (!configureLinks) {
@@ -261,7 +318,7 @@ async function main() {
   if (socialBlock) {
     siteConfig = siteConfig.replace(
       /export const SOCIAL_LINKS: SocialLinks = \{[\s\S]*?\};/,
-      socialBlock
+      socialBlock,
     );
   }
 
@@ -294,7 +351,6 @@ async function main() {
   // Install dependencies
   if (install) {
     s.start("Installing dependencies");
-    const pkgManager = detectPackageManager();
     execSync(`${pkgManager} install`, { cwd: dir, stdio: "ignore" });
     s.stop("Dependencies installed.");
   }
@@ -302,14 +358,12 @@ async function main() {
   const fullPath = path.resolve(dir);
 
   const nextSteps = [`cd ${name}`];
-  if (!install) nextSteps.push("npm install");
-  nextSteps.push("npm run dev");
+  if (!install) nextSteps.push(`${pkgManager} install`);
+  nextSteps.push(`${pkgManager} run dev`);
 
   p.note(nextSteps.join("\n"), "Next steps");
 
-  p.outro(
-    color.green(`Success! Created ${name} at ${fullPath}`)
-  );
+  p.outro(color.green(`Success! Created ${name} at ${fullPath}`));
 }
 
 function detectPackageManager() {
